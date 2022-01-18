@@ -23,6 +23,7 @@ class SQLArray(UserDict):
     for key in table.search("or"):
         print(table[key])
     """
+    invalid_table_name = re.compile(r"^[^a-zA-Z_]|[^a-zA-Z_0-9@.=+-/]|^sqlite_|^index$").search
 
     def __init__(self, sqlfilename, create=True, convert=None, unconvert=None):
         """
@@ -45,7 +46,6 @@ class SQLArray(UserDict):
             string with this function.
             E.g., json.loads.
         """
-        self.allowedtablename = re.compile("[a-zA-Z_]+").search
         self.filename = sqlfilename
         self.convert = convert if convert else self.raw
         self.unconvert = unconvert if unconvert else self.raw
@@ -88,18 +88,18 @@ class SQLArray(UserDict):
 
         def _sanitize_type(db_type):
             if not db_type:
-                return None
+                return ""
             if isinstance(db_type, str):
                 valid_types = ['NULL', 'INTEGER', 'REAL', 'TEXT', 'BLOB']
                 if db_type in valid_types:
                     return db_type
                 raise ValueError(
                     f"DB type must be one of {valid_types} (got {db_type})")
-            if db_type==int or isinstance(db_type, int):
+            if db_type == int or isinstance(db_type, int):
                 return 'INTEGER'
-            if db_type==bytes or db_type==bytearray or isinstance(db_type, (bytes, bytearray)):
+            if db_type == bytes or db_type == bytearray or isinstance(db_type, (bytes, bytearray)):
                 return 'BLOB'
-            if db_type==float or isinstance(db_type, float):
+            if db_type == float or isinstance(db_type, float):
                 return 'REAL'
             raise ValueError(f"unknown DB type: {type(db_type)}")
 
@@ -110,16 +110,18 @@ class SQLArray(UserDict):
             self.db = db
             self.convert = convert if convert else db.convert
             self.unconvert = unconvert if unconvert else db.unconvert
-            if not db.allowedtablename(name):
-                raise KeyError
-            self.name = name
-            key_type = SQLArray.Table._sanitize_type(key_type)
-            value_type = SQLArray.Table._sanitize_type(value_type)
+            # Cannot use '?' for table name.
+            sub_name = name.replace("'", "_").replace(" ", "_")
+            if db.invalid_table_name(sub_name):
+                raise KeyError(f"{db}: invalid table name: '{name}' -> '{sub_name}'")
+            self.name = sub_name
+            key_type_str = SQLArray.Table._sanitize_type(key_type)
+            value_type_str = SQLArray.Table._sanitize_type(value_type)
             self.db.sql.execute(
-                f"CREATE TABLE IF NOT EXISTS {self.name} ("
-                f"key {key_type if key_type else ''} PRIMARY KEY,"
-                f"value {value_type if value_type else ''}"
-                f")")
+                f'CREATE TABLE IF NOT EXISTS "{self.name}" ('
+                f'key {key_type_str} PRIMARY KEY,'
+                f'value {value_type_str}'
+                f')')
 
         def __repr__(self):
             return self.db.__repr__() + f"['{self.name}']"
@@ -128,11 +130,11 @@ class SQLArray(UserDict):
             return self.name
 
         def row(self, key):
-            return self.db.sql.execute(f"SELECT value FROM {self.name} WHERE key=?",
+            return self.db.sql.execute(f'SELECT value FROM "{self.name}" WHERE key=?',
                                        (key,)).fetchone()
 
         def __len__(self):
-            return self.db.sql.execute(f"SELECT count(*) FROM {self.name}").fetchone()[0]
+            return self.db.sql.execute(f'SELECT count(*) FROM "{self.name}"').fetchone()[0]
 
         def __getitem__(self, key):
             row = self.row(key)
@@ -142,15 +144,15 @@ class SQLArray(UserDict):
 
         def __setitem__(self, key, value):
             v = self.convert(value)
-            self.db.sql.execute(f"REPLACE INTO {self.name} (key,value) VALUES (?,?)",
+            self.db.sql.execute(f'REPLACE INTO "{self.name}" (key,value) VALUES (?,?)',
                                 (key, v))
             self.db.sql.commit()
 
         def __delitem__(self, key):
             if not self.row(key):
                 raise KeyError
-            self.db.sql.execute(f"DELETE FROM {self.name} WHERE key=?",
-                                (key,))
+            self.db.sql.execute(f'DELETE FROM "{self.name}" WHERE key=?',
+                                (key))
 
         class IterKey():
             def __init__(self, cursor):
@@ -164,7 +166,7 @@ class SQLArray(UserDict):
 
         def __iter__(self):
             c = self.db.sql.cursor()
-            return self.IterKey(c.execute(f"SELECT key FROM {self.name}"))
+            return self.IterKey(c.execute(f'SELECT key FROM "{self.name}"'))
 
         def list(self):
             """Return a list of all keys."""
@@ -173,14 +175,14 @@ class SQLArray(UserDict):
         def like(self, search):
             """Case insensitive SQL-like search over raw values."""
             c = self.db.sql.cursor()
-            c.execute(f"SELECT key FROM {self.name} WHERE value LIKE ? ESCAPE '\\'",
+            c.execute(f'SELECT key FROM "{self.name}" WHERE value LIKE ? ESCAPE "\\"',
                       (search,))
             return self.IterKey(c)
 
         def glob(self, search):
             """Case sensitive glob-like search over raw values."""
             c = self.db.sql.cursor()
-            c.execute(f"SELECT key FROM {self.name} WHERE value GLOB ?",
+            c.execute(f'SELECT key FROM "{self.name}" WHERE value GLOB ?',
                       (search,))
             return self.IterKey(c)
 
@@ -193,7 +195,7 @@ class SQLArray(UserDict):
         def equal(self, search):
             """Search for exact match in values."""
             c = self.db.sql.cursor()
-            c.execute(f"SELECT key FROM {self.name} WHERE value == ?",
+            c.execute(f'SELECT key FROM "{self.name}" WHERE value == ?',
                       (search,))
             return self.IterKey(c)
 

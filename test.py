@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+"""
+Basic functionality check.
+"""
 from sqlarray import SQLArray
 import json
 import time
@@ -13,21 +16,33 @@ def wordstream(file):
 
 
 def populate():
-    db = SQLArray("db1")["sqlarray"]
-    db[time.time()] = time.ctime()
+    db = SQLArray("db1")
+    array = db["sqlarray"]
+    array[time.time()] = time.ctime()
+    try:
+        db['Robert"); DROP TABLE *']["student"] = "Little Bobby Tables"
+    except KeyError as err:
+        if "invalid table name" in err.args[0]:
+            pass
+        else:
+            raise err
+    else:
+        raise KeyError("bad table name permitted")
 
     db = SQLArray("db2")
+    db["another"]["elvis"] = "uh-huh-huh"
+    db["another"]["jackson"] = "woo-hoo"
+    db["another"]["glass"] = "zzz"
     db["secondary"]["really"] = "phreooooow!"
-    db["another"]["yokeydokey"] = "uh-huh-huh"
 
-    db = SQLArray("db2", convert=json.dumps, unconvert=json.loads)
+    db = SQLArray("db3", convert=json.dumps, unconvert=json.loads)
     array = db['sqlarray']
     d = {}
     d['one'] = "1"
     d['two'] = "2"
     array['object'] = d
 
-    db = SQLArray("db3")
+    db = SQLArray("db4")
     words = SQLArray.Table(db, "words", key_type=int)
     index = SQLArray.Table(db, "counter_index", value_type=int)
     try:
@@ -46,12 +61,25 @@ def check():
     for t in array:
         print(f"{t}: {array[t]}")
 
-    db = SQLArray("db2", convert=json.dumps, unconvert=json.loads)
+    db = SQLArray("db2")
+    if not db["secondary"]["really"] == "phreooooow!":
+        raise ValueError(f"{db}: secondary mismatch")
+    array = db['another']
+    found = 0
+    ok = False
+    for key in array.search('huh'):
+        if key == 'elvis':
+            ok = True
+        found += 1
+    if not (ok and found == 1):
+        raise ValueError(f"{db}: search failed found={found} ok={ok}")
+
+    db = SQLArray("db3", convert=json.dumps, unconvert=json.loads)
     d = db['sqlarray']['object']
     if d['one'] != "1" or d['two'] != "2":
         raise ValueError(f"{db}: incorrect object: {d}")
 
-    db = SQLArray("db3")
+    db = SQLArray("db4")
     words = db['words']
     index = db['counter_index']
     count = index['count']
@@ -69,4 +97,7 @@ def check():
 
 populate()
 check()
-print("Examine DB contents with ./sqlarray/sqlarray.py db[x]_sa.sqlite")
+print("Examine DB contents then clean up with:\n"
+      "  ./sqlarray/sqlarray.py db*_sa.sqlite\n"
+      "  rm db*_sa.sqlite"
+      )

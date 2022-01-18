@@ -6,7 +6,7 @@ import sys
 
 
 def wordstream(file):
-    with open(sys.argv[0]) as f:
+    with open(file) as f:
         for line in f.readlines():
             for word in [x for x in line.split(' ') if x]:
                 yield word.strip()

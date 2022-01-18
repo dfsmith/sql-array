@@ -5,7 +5,7 @@ setup(
     packages=['sqlarary'],
     version='0.1',
     license='lgpl-2.1',
-    description='A persistent python array backed by a SQList3 database.',
+    description='A persistent python array backed by a SQLite3 database.',
     author='Daniel F. Smith',
     author_email='github@dfsmith.net',
     url='https://github.com/dfsmith/sql-array',

@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='sqlarray',
-    packages=['sqlarary'],
+    packages=['sqlarray'],
     version='0.1',
     license='lgpl-2.1',
     description='A persistent python array backed by a SQLite3 database.',

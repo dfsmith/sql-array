@@ -17,7 +17,7 @@ setup(
         'Intended Audience :: Developers',
         'Topic :: Database :: Front-Ends',
         'Topic :: Software Development :: Libraries',
-        'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)''
+        'License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)',
         'Programming Language :: Python :: 3',
     ],
 )
